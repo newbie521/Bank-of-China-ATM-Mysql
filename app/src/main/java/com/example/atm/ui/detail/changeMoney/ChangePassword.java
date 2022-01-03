@@ -24,7 +24,7 @@ import com.example.atm.ui.detail.transfer.Transfer;
 import com.example.atm.util.MyAppCompatActivity;
 import com.example.atm.util.MyButton;
 import com.example.atm.R;
-import com.example.atm.database.Acc;
+
 import com.example.atm.util.OperateSql;
 
 public class ChangePassword extends MyAppCompatActivity {

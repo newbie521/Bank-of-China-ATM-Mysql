@@ -22,7 +22,6 @@ import com.example.atm.ui.detail.function;
 import com.example.atm.ui.login.login;
 import com.example.atm.util.MyButton;
 import com.example.atm.R;
-import com.example.atm.database.Acc;
 import com.example.atm.util.OperateSql;
 
 import org.litepal.crud.DataSupport;

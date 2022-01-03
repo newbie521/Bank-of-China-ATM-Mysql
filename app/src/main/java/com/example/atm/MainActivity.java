@@ -13,8 +13,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.example.atm.database.Acc;
-import com.example.atm.database.Information;
 import com.example.atm.ui.login.login;
 import com.example.atm.util.MyAppCompatActivity;
 import com.example.atm.util.OperateSql;
@@ -67,35 +65,35 @@ public class MainActivity extends MyAppCompatActivity {
         addData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // 创建数据库
-                LitePal.getDatabase();
-                // list表
-
-                DataSupport.deleteAll(Information.class);
-                DataSupport.deleteAll(Acc.class);
-
-                Acc database = new Acc();
-                database.setAccount("08192977");
-                database.setPassword("123456");
-                database.setBalance(50000);
-                database.setAvi_balance(10000);
-                database.save();
-
-
-                Acc database1 = new Acc();
-                database1.setAccount("08192978");
-                database1.setPassword("123456");
-                database1.setBalance(60000);
-                database1.setAvi_balance(10000);
-                database1.save();
-
-                Acc database2 = new Acc();
-                database2.setAccount("08192979");
-                database2.setPassword("123456");
-                database2.setBalance(70000);
-                database2.setAvi_balance(10000);
-                database2.save();
+//                // 创建数据库
+//                LitePal.getDatabase();
+//                // list表
 //
+//                DataSupport.deleteAll(Information.class);
+//                DataSupport.deleteAll(Acc.class);
+//
+//                Acc database = new Acc();
+//                database.setAccount("08192977");
+//                database.setPassword("123456");
+//                database.setBalance(50000);
+//                database.setAvi_balance(10000);
+//                database.save();
+//
+//
+//                Acc database1 = new Acc();
+//                database1.setAccount("08192978");
+//                database1.setPassword("123456");
+//                database1.setBalance(60000);
+//                database1.setAvi_balance(10000);
+//                database1.save();
+//
+//                Acc database2 = new Acc();
+//                database2.setAccount("08192979");
+//                database2.setPassword("123456");
+//                database2.setBalance(70000);
+//                database2.setAvi_balance(10000);
+//                database2.save();
+////
 //                Information database3 = new Information();
 //                database3.setDate("2000");
 //                database3.setExchange("00");

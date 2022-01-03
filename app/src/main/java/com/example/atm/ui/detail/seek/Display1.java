@@ -29,7 +29,6 @@ import com.example.atm.ui.detail.changeMoney.ChangePassword;
 import com.example.atm.ui.detail.function;
 import com.example.atm.MainActivity;
 import com.example.atm.R;
-import com.example.atm.database.Information;
 import com.example.atm.util.Fruit;
 import com.example.atm.util.FruitAdapter;
 import com.example.atm.util.MyAppCompatActivity;

@@ -27,8 +27,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.atm.MainActivity;
 import com.example.atm.R;
-import com.example.atm.database.Acc;
-import com.example.atm.database.Information;
+
 import com.example.atm.ui.detail.changeMoney.ChangePassword;
 import com.example.atm.ui.detail.getmoney.GetMoney;
 import com.example.atm.ui.detail.seek.Display;
