@@ -1,19 +1,25 @@
 package com.example.atm.ui.detail;
 
 import static com.example.atm.MainActivity.acc;
-import static com.example.atm.MainActivity.avi_money;
 import static com.example.atm.MainActivity.bal;
 import static com.example.atm.MainActivity.avi_bal;
 import static com.example.atm.ui.detail.transfer.Transfer.acc1;
 import static com.example.atm.ui.detail.transfer.Transfer.bal1;
+import static com.example.atm.MainActivity.avi_money;
 
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.database.SQLException;
+import android.net.Network;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ListAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,10 +34,8 @@ import com.example.atm.ui.detail.getmoney.GetMoney;
 import com.example.atm.ui.detail.seek.Display;
 import com.example.atm.ui.detail.transfer.Transfer;
 import com.example.atm.util.Fruit;
+import com.example.atm.util.OperateSql;
 
-import org.litepal.crud.DataSupport;
-
-import java.text.BreakIterator;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -48,24 +52,22 @@ public class Remind extends AppCompatActivity {
     private Button display;
     private Button print;
     private String data;
+    private List<String> record = new ArrayList<>();
 
     protected void onCreate( Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.remind);
 //        设置隐藏状态栏
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
         textView = (TextView) findViewById(R.id.textview1);
         return1 = (Button) findViewById(R.id.返回);
         back_card = (Button) findViewById(R.id.退卡);
         display = (Button) findViewById(R.id.显示余额);
         print = (Button) findViewById(R.id.打印凭条);
 //        接收数据
-
         try{
             getData() ;
         }catch(ParseException e){
-
         }
 
 //        返回
@@ -129,7 +131,6 @@ public class Remind extends AppCompatActivity {
     }
     private void getData()throws ParseException {
         Intent intent = getIntent();
-
         data = intent.getStringExtra("data");
 
         if (data.equals("0")){
@@ -141,145 +142,177 @@ public class Remind extends AppCompatActivity {
 //           取款
             String value = intent.getStringExtra("value");
 
-//          每天可取款值为1000
-            List<Information> some = DataSupport.findAll(Information.class);
-            for(int i = some.size()-1;i>=0;i--){
-                if(acc.equals(some.get(i).getAccount())){
-                    SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-                    int x = differentDays(new Date() ,df.parse(some.get(i).getDate())); // 与上次相差几天
-//                    long time = (new Date().getTime() - df.parse(some.get(i).getDate()).getTime());
-//                    String result = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(time));
-                    if(x > 0){
-                        avi_bal = 10000;
-                        Acc database = new Acc();
-                        database.setAvi_balance(avi_bal);
-                        database.updateAll("account = ?", acc);
+//          每天可取款值为10000
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+//                        每日限额
+                        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                        if(new OperateSql().getLastDate(acc) != null){
+                            int x = differentDays(new Date() ,df.parse(new OperateSql().getLastDate(acc))); // 与上次相差几天
+                            if(x > 0){
+                                avi_bal = 10000;
+                                new OperateSql().updateAvi_Balance(acc, avi_bal);
+                            }
+                        }
+
+
+                        Message message = handler.obtainMessage();
+                        if(Integer.parseInt(value)>bal){
+//                            余额不足
+                            message.what = 0x11;
+
+                        }else{
+                          if(Integer.parseInt(value)>avi_bal){
+                              if(Integer.parseInt(value)>avi_money){
+//                                  金额超出额度：10000
+                                  message.what = 0x12;
+
+                              }else{
+//                                  今日可取金额不足
+                                  message.what = 0x13;
+                              }
+                          }else{
+                              bal -= Integer.parseInt(value);
+                              avi_bal -= Integer.parseInt(value);
+                              new OperateSql().updateBalance(acc, bal);
+                              new OperateSql().updateAvi_Balance(acc, avi_bal);
+
+//                             获取时间
+                              SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                              Date date = new Date();
+                              record.add(acc);
+                              record.add(formatter.format(date));
+                              record.add(value);
+                              record.add("取款");
+                              new OperateSql().updateRecord(record);
+                              record.clear();
+
+                              database_tmp.add(new Fruit(formatter.format(date),value,"取款"));//记录此次操作
+                              message.what = 0x14;
+                              message.obj = "取款";
+                              flag = "1";
+                          }
+                        }
+                        // 发消息通知主线程更新UI
+                        handler.sendMessage(message);
+
+                    } catch (SQLException | ParseException e) {
+                        e.printStackTrace();
                     }
-                    break;
                 }
-            }
+            }).start();
+//            Toast.makeText(Remind.this, Integer.toString( user.getBalance(acc)), Toast.LENGTH_SHORT).show();
 
-            if(Integer.parseInt(value)>bal){
-//                余额不足
-                textView.setText("提示：余额不足");
-                Toast.makeText(this, "余额不足！", Toast.LENGTH_SHORT).show();
-            }else{
-                if(Integer.parseInt(value)>avi_bal){
-                    if(Integer.parseInt(value)>avi_money){
-                        Toast.makeText(Remind.this, "金额超出额度：10000", Toast.LENGTH_SHORT).show();
-                    }else{
-                        Toast.makeText(Remind.this, "今日可取金额："+ avi_bal, Toast.LENGTH_SHORT).show();
-                    }
-
-                }else{
-                    bal -= Integer.parseInt(value);
-                    avi_bal -= Integer.parseInt(value);
-
-                    Acc database = new Acc();
-                    database.setBalance(bal);
-                    database.setAvi_balance(avi_bal);
-                    database.updateAll("account = ?", acc);
-//              获取时间
-                    SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    Date date = new Date();
-
-                    Information database1 = new Information();
-                    database1.setAccount(acc);
-                    database1.setDate(formatter.format(date));
-                    database1.setExchange(value);
-                    database1.setType("取款");
-                    database_tmp.add(new Fruit(database1.getDate(), database1.getExchange(),database1.getType()));//记录此次操作
-                    database1.save();
-
-                    Toast.makeText(this, "取款成功！", Toast.LENGTH_SHORT).show();
-                    textView.setText("提示：取款成功");
-                    flag = "1";
-                }
-            }
-            display.setVisibility(View.VISIBLE); // 查看账户余额
-            print.setVisibility(View.VISIBLE); // 查看账户交易记录
+//            List<Information> some = DataSupport.findAll(Information.class);
+//            for(int i = some.size()-1;i>=0;i--){
+//                if(acc.equals(some.get(i).getAccount())){
+//                    SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+//                    int x = differentDays(new Date() ,df.parse(some.get(i).getDate())); // 与上次相差几天
+////                    long time = (new Date().getTime() - df.parse(some.get(i).getDate()).getTime());
+////                    String result = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(time));
+//                    if(x > 0){
+//                        avi_bal = 10000;
+//                        Acc database = new Acc();
+//                        database.setAvi_balance(avi_bal);
+//                        database.updateAll("account = ?", acc);
+//                    }
+//                    break;
+//                }
+//            }
         }
         else if(data.equals("3")){
 //          存款
             String value = intent.getStringExtra("value");
 
-            bal += Integer.parseInt(value);
-            Acc database = new Acc();
-            database.setBalance(bal);
-            database.updateAll("account = ?", acc);
-            Log.d("ChangePassword", "修改余额:"+acc);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Message message = handler.obtainMessage();
+                        bal += Integer.parseInt(value);
+                        new OperateSql().updateBalance(acc,bal);
+                        Log.d("ChangePassword", "修改余额:"+acc);
 
-//          修改自己账户记录
-            SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//获取时间
-            Date date = new Date();
-            Information database1 = new Information();
-            database1.setAccount(acc);
-            database1.setDate(formatter.format(date));
-            database1.setExchange(value);
-            database1.setType("存款");
-            database_tmp.add(new Fruit(database1.getDate(), database1.getExchange(),database1.getType()));//记录此次操作
-            database1.save();
+                        SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//获取时间
+                        Date date = new Date();
+                        record.add(acc);
+                        record.add(formatter.format(date));
+                        record.add(value);
+                        record.add("存款");
+                        new OperateSql().updateRecord(record);
+                        record.clear();
+                        database_tmp.add(new Fruit(formatter.format(date),value,"存款"));//记录此次操作
 
-            textView.setText("提示：存款成功");
-            Toast.makeText(this, "存款成功！", Toast.LENGTH_SHORT).show();
-            display.setVisibility(View.VISIBLE); // 查看账户余额
-            print.setVisibility(View.VISIBLE); // 查看账户交易记录
-
+                        message.what = 0x14;
+                        message.obj = "存款";
+                        // 发消息通知主线程更新UI
+                        handler.sendMessage(message);
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
         }
         else if(data.equals("4")){
 //          转账
             String value = intent.getStringExtra("value");
-            if(Integer.parseInt(value)>bal){
-//                余额不足
-                textView.setText("提示：余额不足");
-                Toast.makeText(this, "余额不足！", Toast.LENGTH_SHORT).show();
-            }else{
-//                修改自己账户余额
-                Acc database = new Acc();
-                bal -= Integer.parseInt(value);
-                avi_bal -= Integer.parseInt(value);
-                database.setBalance(bal);
-                database.setAvi_balance(avi_bal);
-                database.updateAll("account = ?", acc);
 
-//                修改自己账户记录
-                SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//获取时间
-                Date date = new Date();
-                Information database1 = new Information();
-                database1.setAccount(acc);
-                database1.setDate(formatter.format(date));
-                database1.setExchange(value);
-                database1.setType("转出");
-                database_tmp.add(new Fruit(database1.getDate(), database1.getExchange(),database1.getType()));//记录此次操作
-                database1.save();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Message message = handler.obtainMessage();
+                        if(Integer.parseInt(value)>bal){
+//                           余额不足
+                            message.what = 0x11;
+                        }else{
+//                            修改自己账户余额
 
-//                修改转账账户余额
-                bal1 += Integer.parseInt(value); //新增金额
-                Acc database2 = new Acc();
-                database2.setBalance(bal1);
-                database2.updateAll("account = ?", acc1);
+                            bal -= Integer.parseInt(value);
+                            avi_bal -= Integer.parseInt(value);
+                            new OperateSql().updateBalance(acc, bal);
+                            new OperateSql().updateAvi_Balance(acc, avi_bal);
 
-//                修改转入账户记录
-                Information database3 = new Information();
-                database3.setAccount(acc1);
-                database3.setDate(formatter.format(date));
-                database3.setExchange(value);
-                database3.setType("转入");
-                database3.save();
+//                            修改自己账户记录
+                            SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//获取时间
+                            Date date = new Date();
+                            record.add(acc);
+                            record.add(formatter.format(date));
+                            record.add(value);
+                            record.add("转出");
+                            new OperateSql().updateRecord(record);
+                            record.clear();
+                            database_tmp.add(new Fruit(formatter.format(date), value,"转出"));//记录此次操作
 
+//                          修改转入账户余额
+                            bal1 += Integer.parseInt(value); //新增金额
+                            new OperateSql().updateBalance(acc1, bal1);
 
-                Log.d("ChangePassword", "修改余额:"+acc1);
-                textView.setText("提示：转账成功");
-                Toast.makeText(this, "转账成功！", Toast.LENGTH_SHORT).show();
-                flag = "1";
+//                          修改转入账户记录
+                            record.add(acc1);
+                            record.add(formatter.format(date));
+                            record.add(value);
+                            record.add("转入");
+                            new OperateSql().updateRecord(record);
+                            record.clear();
 
-                display.setVisibility(View.VISIBLE);
-                print.setVisibility(View.VISIBLE);
-            }
-
+                            flag = "1";
+                            message.what = 0x14;
+                            message.obj = "转账";
+                        }
+                        // 发消息通知主线程更新UI
+                        handler.sendMessage(message);
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
         }
 
     }
+
 
     public static int differentDays(Date beforeDate, Date currentDate) {
         Calendar cal1 = Calendar.getInstance();
@@ -312,5 +345,36 @@ public class Remind extends AppCompatActivity {
         }
     }
 
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what){
+                case 0x11:
+//                   余额不足
+                    textView.setText("提示：余额不足");
+                    Toast.makeText(Remind.this, "余额不足！", Toast.LENGTH_SHORT).show();
+//                    String s = (String) msg.obj;
+//                    tv_data.setText(s);
+                    break;
+                case 0x12:
+                    Toast.makeText(Remind.this, "金额超出额度：10000", Toast.LENGTH_SHORT).show();
+                    break;
+                case 0x13:
+                    Toast.makeText(Remind.this, "今日可取金额："+ avi_bal, Toast.LENGTH_SHORT).show();
+                    break;
+                case 0x14:
+                    String s = (String) msg.obj;
+                    if(s.equals("取款")){
+                        textView.setText("提示：取款成功");
+                    }else if(s.equals("存款")){
+                        textView.setText("提示：存款成功");
+                    }else if(s.equals("转账")){
+                        textView.setText("提示：转账成功");
+                    }
+                    break;
+            }
+        }
+    };
 
 }

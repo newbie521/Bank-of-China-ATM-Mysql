@@ -1,18 +1,14 @@
 package com.example.atm;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.content.Context;
+import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.graphics.Color;
+import android.database.SQLException;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -20,13 +16,11 @@ import android.widget.Toast;
 import com.example.atm.database.Acc;
 import com.example.atm.database.Information;
 import com.example.atm.ui.login.login;
-import com.example.atm.ui.login.password;
 import com.example.atm.util.MyAppCompatActivity;
+import com.example.atm.util.OperateSql;
 
 import org.litepal.LitePal;
 import org.litepal.crud.DataSupport;
-
-import java.util.List;
 
 public class MainActivity extends MyAppCompatActivity {
 
@@ -35,29 +29,34 @@ public class MainActivity extends MyAppCompatActivity {
     public static int bal;
     public static int avi_bal;//    当日可用金额
     public static final int avi_money = 10000;
+    private String pass_temp=null;
 
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what){
+                case 0x11:
+                    Toast.makeText(MainActivity.this, "用户账号不存在", Toast.LENGTH_SHORT).show();
+//                    String s = (String) msg.obj;
+//                    tv_data.setText(s);
+                    break;
+                case 0x12:
+//                    String ss = (String) msg.obj;
+//                    tv_data.setText(ss);
+                    break;
+            }
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 
-//        设置全透明状态栏
-//        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-//            Window window = getWindow();
-//            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
-//                    | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-//            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-//                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-//                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-//            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-//            window.setStatusBarColor(Color.TRANSPARENT);
-//            window.setNavigationBarColor(Color.TRANSPARENT);
-//        }
-
 //        设置隐藏状态栏
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
         setContentView(R.layout.waiting);
         Button button = (Button) findViewById(R.id.button); // 插卡
         EditText account = (EditText) findViewById(R.id.account); // 卡号
@@ -109,45 +108,71 @@ public class MainActivity extends MyAppCompatActivity {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (account.getText().equals("")){
 
-                }
-                else {
-                    List<Acc> some = DataSupport.findAll(Acc.class);
-                    System.out.println(some);
-                    for(Acc book:some) {
-                        if(account.getText().toString().equals(book.getAccount())){
-                            acc = book.getAccount();
-                            pas = book.getPassword();
-                            bal = book.getBalance();
-                            avi_bal = book.getAvi_balance();
+                if (account.getText().equals("")) {
 
-                            Log.d("MainActivity", "account " + book.getAccount());
-                            Log.d("MainActivity", "password " + book.getPassword());
-                            Log.d("MainActivity", "balance " + book.getBalance());
-
-//                          加载中
-//                           转到输入密码login界面
-                            Intent intent = new Intent(MainActivity.this, login.class);
-//                           intent.putExtra("password",pas);
-                            startActivity(intent);
-
-                            break;
-                        }else {
-                            Toast.makeText(MainActivity.this, "用户账号不存在", Toast.LENGTH_SHORT).show();
+                } else {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Message message = handler.obtainMessage();
+                                pass_temp = new OperateSql().getPassword(account.getText().toString());
+                                if (pass_temp != null) {
+                                    acc = account.getText().toString();
+                                    pas = pass_temp;
+                                    bal = new OperateSql().getBalance(acc);
+                                    avi_bal = new OperateSql().getAvi_Balance(acc);
+//                                  加载中
+//                                  转到输入密码login界面
+                                    Intent intent = new Intent(MainActivity.this, login.class);
+                                    startActivity(intent);
+                                } else {
+                                    message.what = 0x11;
+                                }
+                                // 发消息通知主线程更新UI
+                                handler.sendMessage(message);
+                            } catch (SQLException e) {
+                                e.printStackTrace();
+                            }
                         }
-                    }
-
+                    }).start();
                 }
-
-
-
             }
+//                    List<Acc> some = DataSupport.findAll(Acc.class);
+//                    System.out.println(some);
+//                    for(Acc book:some) {
+//                        if(account.getText().toString().equals(book.getAccount())){
+//                            acc = book.getAccount();
+//                            pas = book.getPassword();
+//                            bal = book.getBalance();
+//                            avi_bal = book.getAvi_balance();
+//
+//                            Log.d("MainActivity", "account " + book.getAccount());
+//                            Log.d("MainActivity", "password " + book.getPassword());
+//                            Log.d("MainActivity", "balance " + book.getBalance());
+//
+////                          加载中
+////                           转到输入密码login界面
+//                            Intent intent = new Intent(MainActivity.this, login.class);
+////                           intent.putExtra("password",pas);
+//                            startActivity(intent);
+//
+//                            break;
+//                        }else {
+//                            Toast.makeText(MainActivity.this, "用户账号不存在", Toast.LENGTH_SHORT).show();
+//                        }
+//                    }
+//
+//                }
+
+//            }
         });
 //        用户须知
         warn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+//                Intent intent = new Intent(MainActivity.this, Warn.class);
                 Intent intent = new Intent(MainActivity.this, Warn.class);
                 startActivity(intent);
             }

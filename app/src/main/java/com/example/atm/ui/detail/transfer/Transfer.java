@@ -2,8 +2,12 @@ package com.example.atm.ui.detail.transfer;
 
 import static com.example.atm.MainActivity.acc;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.database.SQLException;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.EditText;
@@ -12,11 +16,14 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.atm.MainActivity;
 import com.example.atm.ui.detail.Remind;
 import com.example.atm.ui.detail.function;
+import com.example.atm.ui.login.login;
 import com.example.atm.util.MyButton;
 import com.example.atm.R;
 import com.example.atm.database.Acc;
+import com.example.atm.util.OperateSql;
 
 import org.litepal.crud.DataSupport;
 
@@ -61,22 +68,35 @@ public class Transfer extends AppCompatActivity {
                         Toast.makeText(Transfer.this,"提示;不能给自己转账",Toast.LENGTH_SHORT).show();
                     }
                     else if(state == 0){
-                        List<Acc> some = DataSupport.findAll(Acc.class);
-                        System.out.println(some);
-                        for(Acc book:some) {
-                            if(editText.getText().toString().equals(book.getAccount())){
-                                acc1 = editText.getText().toString();
-                                bal1 = book.getBalance();
-                                state = 1;
-                                Intent intent = new Intent(Transfer.this, Transfer.class);
-                                startActivity(intent);
-                                finish();
-                            };
-                        }
+
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    Message message = handler.obtainMessage();
+                                    acc1 = editText.getText().toString();
+                                    bal1 = new OperateSql().getBalance(acc1);
+                                    if(bal1 == -1){
+                                        message.what = 0x11;
+                                    }else{
+                                        state = 1;
+                                        Intent intent = new Intent(Transfer.this, Transfer.class);
+                                        startActivity(intent);
+                                        finish();
+                                    }
+                                    // 发消息通知主线程更新UI
+                                    handler.sendMessage(message);
+                                } catch (SQLException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }).start();
+
+
                     }else if(state == 1){
                         Intent intent = new Intent(Transfer.this, Remind.class);
-                        intent.putExtra("data", "4");//转账金额
-                        intent.putExtra("value", editText.getText().toString());
+                        intent.putExtra("data", "4");//转账
+                        intent.putExtra("value", editText.getText().toString());//转账金额
                         startActivity(intent);
                         state = 0;
                         finish();
@@ -111,4 +131,21 @@ public class Transfer extends AppCompatActivity {
         });
 
     }
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what){
+                case 0x11:
+                    Toast.makeText(Transfer.this, "用户账号不存在", Toast.LENGTH_SHORT).show();
+                    break;
+                case 0x12:
+//                    String ss = (String) msg.obj;
+//                    tv_data.setText(ss);
+                    break;
+            }
+
+        }
+    };
 }
